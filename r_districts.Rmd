@@ -1,0 +1,233 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+install.packages("corrplot")
+library(corrplot)
+```
+
+1. Read in `districts.csv` into a tibble named `districts`. How many rows and columns does it contain? 
+146 rows, 27 columns
+
+```{r}
+districts<- read_csv('./data/districts.csv')
+```
+
+2. Notice that the first row corresponds to the whole State of Tennessee. Remove this row and save the result back to `districts`.
+```{r}
+districts = districts[-1,]
+```
+
+3. How many districts have a proficiency rate of at least 80% for both alg_1 and eng_1?
+```{r}
+districts %>% 
+  filter(alg_1 >= 80 & eng_1 >=80) 
+```
+
+4. How many districts have a proficiency rate less than 50% for either alg_1 or eng_1?
+```{r}
+districts %>% 
+  filter(alg_1 < 50 & eng_1 < 50) 
+
+```
+5. Which district has the lowest graduation rate?
+```{r}
+districts[which.min(districts$grad),]
+```
+
+
+6. Which district has the highest dropout rate?
+```{r}
+districts[which.max(districts$dropout),]
+
+```
+
+
+7. Within the Mid Cumberland region, which district has the highest ACT composite?
+```{r}
+filter (districts, region == "Mid Cumberland") %>% 
+  slice_max(act_composite)
+```
+
+8. Create a histogram showing the distribution of graduation rates. What can you say about this distribution?
+```{r}
+ggplot (districts, aes(x=grad)) +
+  geom_histogram()
+
+```
+
+9. Create a scatter plot to compare alg_1 proficiency rates to alg_2 rates. What do you notice? Facet this plot by region. Does anything stand out when you facet the plots?
+```{r}
+ggplot (districts, aes(x=alg_1, y= alg_2)) +
+  geom_point() +
+  facet_wrap(~region)
+```
+10. Create a bar chart showing the total enrollment by region. Which region has the highest total enrollment? Which has the smallest? 
+Mid Cumberland has the highest total enrollment and Northwest has the lowest enrollment
+```{r}
+ggplot(districts, aes(x= region, y=enrollment)) +
+  geom_col() +
+  scale_y_continuous(breaks = seq(0,300000, by=50000))
+```
+11. When creating this bar chart you may have noticed that some districts have missing enrollment values. For how many districts is this the case?
+```{r}
+districts[is.na(districts$enrollment), ]
+
+```
+
+12. What is the mean graduation rate across all districts? What might be wrong with using just the regular mean to assess average graduation rates? 90%, not a good measure because districts have different enrollment numbers
+```{r}
+districts %>%
+  summarize(mean(grad, na.rm=TRUE))
+```
+
+13. Redo the previous question but use a weighted average (`weighted.mean`) graduation across all districts, weighing by enrollment. How much does this change your answer? Can you explain using the data the reason for the big change from using the mean?
+Weighted average is slightly lower. Mid Cumberland which has the highest enrollment, has a graduation rate of 85%. 
+```{r}
+districts_na <- districts[!is.na(districts$enrollment), ]
+```
+
+```{r}
+districts_na %>%
+  summarize(weighted.mean(grad,enrollment, na.rm=TRUE))
+```
+
+```{r}
+districts %>% 
+  group_by(region) %>% 
+  summarize(mean_grad = mean(grad, na.rm=TRUE)) 
+```
+
+14. Create a boxplot showing enrollment rates per region. Does anything stand out?
+Very high outliers, especially for Southwest/Memphis
+
+```{r}
+ggplot(districts, aes(x= region, y=enrollment)) +
+  geom_boxplot() 
+```
+  
+15. Create a boxplot showing graduation rates per region. Does anything stand out?
+Low grad rate outlier for Mid Cumberland region (TN School for the Blind)
+```{r}
+ggplot(districts, aes(x= region, y=grad)) +
+  geom_boxplot()
+```
+
+
+16. Find the weighted average of graduation rates by region using enrollment as weights. Compare the results you get for the weighted average to what you see from the boxplots. Can you explain any discrepancy?
+```{r}
+districts_na <- districts[!is.na(districts$enrollment), ]
+```
+
+```{r}
+districts_na %>%
+  group_by(region) %>% 
+  summarize(weighted_mean = weighted.mean(grad,enrollment, na.rm=TRUE)) %>% 
+  ggplot(., aes(x=region, y=weighted_mean)) +
+    geom_point() 
+```
+
+17. For many districts, values for `alg_2` are lower than for `alg_1`. Create a histogram showing the distribution of differences (`alg_1` - `alg_2`). Which school had the largest drop from `alg_1` to `alg_2`? Pickett County
+For what percentage of schools is it true that `alg_2` is larger than `alg_1`? 15.3%
+Is there a similar dropoff for `eng_2` and `eng_3`?
+```{r}
+districts <- mutate(districts, alg_diff = alg_1 - alg_2) 
+
+ggplot(districts, aes(x=alg_diff)) +
+  geom_histogram()
+```
+
+
+```{r}
+districts[which.max(districts$alg_diff),]
+```
+
+
+```{r}
+districts %>% 
+  count(alg_2 > alg_1)
+```
+
+```{r}
+districts %>% 
+  summarize(sum(alg_diff <0 , na.rm=TRUE))/sum(!is.na(districts$alg_diff))
+
+```
+
+```{r}
+districts <- mutate(districts, eng2_3_diff = eng_2 - eng_3) 
+```
+
+```{r}
+ggplot(districts, aes(x=eng2_3_diff)) +
+  geom_histogram()
+```
+
+```{r}
+districts[which.max(districts$eng2_3_diff),]
+
+```
+
+
+18. You may have noticed that a lot of rows are missing values. Which district has the largest number of missing values? What do you notice about schools that have a lot of missing values? West TN School of the Deaf. Schools with a lot of missing values are the specialized schools 
+
+
+```{r}
+districts[which.max(rowSums(is.na(districts))),]
+```
+```{r}
+districts %>% 
+  top_n(5, na_sum) %>% 
+  arrange(desc(na_sum))
+```
+
+
+```{r}
+districts$na_sum = rowSums(is.na(districts))
+```
+
+
+```{r}
+districts %>% 
+  arrange(desc(na_sum))
+```
+
+
+19. Find the correlation between graduation rate and all other variables. Create a horizontal bar chart showing these correlations. Make sure that your plot is ordered by correlation values. What do you notice from these correlations?
+
+```{r}
+cor.test(districts$grad, districts$act_composite, method="pearson")
+```
+
+```{r}
+matrix <-cor(districts[,unlist(lapply(districts, is.numeric))] ,use="pairwise.complete.obs")
+matrix
+```
+
+```{r}
+cor(districts)[,2]
+```
+```{r}
+corrplot(matrix, type='upper')
+```
+
+
+
+20. Create a scatterplot for `grad` vs. `suspended`. Does what you see make sense given your answer from the previous part?
+```{r}
+ggplot(districts, aes(x=grad, y=suspended)) +
+         geom_point()
+```
+
+
+
+
+21. Create a linear regression model using `lm` with target variable `grad` and predictor variable `suspended`. What R^2 value does this model have? What is the interpretation of this number?
+
+22. Add the regression line to your scatterplot using `geom_smooth` with `method='lm'`. How do you feel about the regression line after seeing it plotted on the scatterplot?
+
+
