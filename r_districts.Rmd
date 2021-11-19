@@ -6,9 +6,19 @@ output: html_notebook
 ```{r}
 library(tidyverse)
 library(ggplot2)
-install.packages("corrplot")
 library(corrplot)
-library(readr) 
+library(rJava)
+library(readxl)
+```
+
+
+```{r}
+install.packages("rJava")
+```
+
+
+```{r}
+install.packages("readxl")
 ```
 
 1. Read in `districts.csv` into a tibble named `districts`. How many rows and columns does it contain? 
@@ -250,6 +260,7 @@ testing_2014 %>%
   filter(subject =='Algebra I' & grade=='All Grades' & subgroup == 'All Students' & pct_below_bsc >= 20) %>% 
   summarize(n=n())
 ```
+
 ```{r}
 testing_2014 %>% 
   filter(subject =='Algebra I' & grade=='All Grades' & subgroup == 'All Students' & pct_below_bsc >= 20) %>% 
@@ -259,12 +270,36 @@ testing_2014 %>%
 unique(df[c("x4")])
 
 25. How many schools have at least 20 percent of students below bsc for _both_ Algebra I and English I?
+
+
+```{r}
+a <- testing_2014 %>% 
+  filter(subject =='Algebra I' & grade=='All Grades' & subgroup == 'All Students' & pct_below_bsc >= 20) 
+
+b <-testing_2014 %>% 
+  filter(subject =='English I' & grade=='All Grades' & subgroup == 'All Students' & pct_below_bsc >= 20) 
+
+merge(a,b,by='school_name')
+
+```
+
+
 ```{r}
 testing_2014 %>% 
-  filter(subject %in% c('Algebra I', 'English I'), grade=='All Grades' & subgroup == 'All Students')
-  
-#filter & pct_below_bsc >= 20)
+  filter(subject =='English I' | subject =='Algebra I') %>% 
+  filter(grade=='All Grades' & subgroup == 'All Students' & pct_below_bsc >= 20) %>% 
+  group_by(system_name,school_name) %>% 
+  filter(n()>1)
+```
+         
+           
 
 
+
+
+
+26. Which grade has the highest pct_adv for Algebra I? Plot the average pct_adv per grade level as a bar chart. Make sure that the bars are ordered by grade level.
+```{r}
+testing_2014 %>% 
 ```
 
