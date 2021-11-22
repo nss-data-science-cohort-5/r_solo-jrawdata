@@ -7,18 +7,13 @@ output: html_notebook
 library(tidyverse)
 library(ggplot2)
 library(corrplot)
-library(rJava)
 library(readxl)
+library(plotly)
+
 ```
 
-
 ```{r}
-install.packages("rJava")
-```
-
-
-```{r}
-install.packages("readxl")
+install.packages("plotly")
 ```
 
 1. Read in `districts.csv` into a tibble named `districts`. How many rows and columns does it contain? 
@@ -296,29 +291,31 @@ testing_2014 %>%
 
 26. Which grade has the highest pct_adv for Algebra I? Plot the average pct_adv per grade level as a bar chart. Make sure that the bars are ordered by grade level.
 
-```{r}
-pct <-testing_2014 %>%
-  group_by(grade,'Algebra I') %>% 
-  summarize(mean=mean(pct_adv, na.rm=TRUE))
-```
 
 ```{r}
-pct <-pct[-c(11,12),] %>% 
+Alg1_pct_adv <- testing_2014 %>% 
+  filter(subject =='Algebra I' & subgroup == 'All Students') %>% 
+  group_by(grade) %>% 
+  summarize(mean=mean(pct_adv, na.rm=TRUE)) %>% 
+  drop_na() %>% 
+  slice(1:5) %>% 
   ggplot((aes(x=factor(as.numeric(grade)), y=mean))) +
   geom_col() +
   labs(x='Grade', y='mean of pct_adv')
 ```
+
 ```{r}
-pct
+Alg1_pct_adv
 ```
 
-
+  
 27. Find the correlation between pct_adv for Algebra I and pct_adv for Algebra II by school. Create a scatterplot showing Algebra II scores vs. Algebra I scores by school.
 ```{r}
 A1 <-testing_2014 %>% 
   filter(subject =='Algebra I') %>% 
   filter(grade=='All Grades' & subgroup == 'All Students') %>% 
   group_by(system_name,school_name) %>% 
+  drop_na() %>% 
   select(system_name, school_name, subject, pct_adv) %>% 
   drop_na()
 A1
@@ -329,27 +326,89 @@ A2 <-testing_2014 %>%
   filter(subject =='Algebra II') %>% 
   filter(grade=='All Grades' & subgroup == 'All Students') %>% 
   group_by(system_name,school_name) %>% 
+  drop_na() %>% 
   select(system_name, school_name, subject, pct_adv) 
+A2
 ```
 
 ```{r}
-inner_join(A1,A2, by='school_name', na_matches = 'never')
+inner_join(A1,A2, by='school_name') %>% 
+  ggplot(aes(x=pct_adv.x, y=pct_adv.y)) +
+    geom_point() +
+    labs(x='Algebra 1 pct_adv', y='Algebra 2 pct_adv')
+
+
 ```
-
-
-
-
-
-
-
-
-
 
 
 
 28. Find all schools in Rutherford County that have "High School" in their name. For these schools, create a chart (your choice) showing the differences in pct_below_bsc, pct_bsc, pct_prof, and pct_adv for Algebra I when looking across all subgroups and grades.
+```{r}
+rutherford_hs <- testing_2014 %>% 
+  filter(system_name =='Rutherford County' & 
+         subject=='Algebra I' & 
+         grade=="All Grades" & 
+         subgroup=="All Students") %>%   
+  filter(grepl("High School", school_name)) %>% 
+  select(school_name, grade,subgroup, pct_below_bsc, pct_bsc, pct_prof, pct_adv) 
+
+rutherford_hs
+```
+```{r}
+rutherford_hs %>% 
+  pivot_longer(names_to='percentages', cols=c('pct_below_bsc', 'pct_bsc', 'pct_prof', 'pct_adv'))
+```
+
+
+```{r}
+rutherford_hs %>% 
+  pivot_longer(names_to ='percentages', cols=c('pct_below_bsc', 'pct_bsc', 'pct_prof', 'pct_adv')) %>% 
+  ggplot(aes(x=school_name, y=value, fill=factor(percentages, levels = c('pct_adv', 'pct_prof', 
+                                                                         'pct_bsc','pct_below_bsc')))) +
+  geom_col() +
+  coord_flip() +
+  labs(x="School", y='Percent %', fill='Percents', title='Stuff') 
+
+ggplotly(tooltip = c("value"))
+
+```
+
+
 
 29. I claim that smaller schools do a better job preparing students for Algebra I standardized tests. Find the average number of valid tests (a proxy for the school size) for schools where the pct_prof_adv for Algebra I is greater than 95. Compare this to the average number of valid tests for all schools. In light of this result, how does my claim look?
+
+```{r}
+testing_2014 %>% 
+  filter(subject=="Algebra I" & 
+         grade=='All Grades' & 
+         subgroup =="All Students" &
+         pct_prof_adv > 95) %>%
+  summarize(mean(valid_tests))
+  
+```
+```{r}
+testing_2014 %>% 
+    summarize(mean(valid_tests))
+```
+
+```{r}
+testing_2014 %>% 
+  filter(subject=="Algebra I" & 
+         grade=='All Grades' & 
+         subgroup =="All Students" &
+         valid_tests > 48) %>% 
+  summarize(mean(pct_prof_adv))
+```
+```{r}
+testing_2014 %>% 
+  filter(subject=="Algebra I" & 
+         grade=='All Grades' & 
+         subgroup =="All Students" &
+         valid_tests < 48) %>% 
+  summarize(mean(pct_prof_adv, na.rm=TRUE))
+```
+
+
 
 30. I also claim that smaller schools do a worse job preparing students for Algebra I standardized tests. Find the average number of valid tests (a proxy for the school size) for schools where the pct_prof_adv for Algebra I is less than 25. Compare this to the average number of valid tests for all schools. In light of this result, how does my claim look now?
 
